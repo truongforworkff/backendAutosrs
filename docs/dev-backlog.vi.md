@@ -293,7 +293,7 @@
 
 ### Có thể làm song song
 
-- Sau AS-DEV-033: AS-DEV-001 có thể bắt đầu cùng lúc với AS-DEV-034; sau AS-DEV-034 có thể chạy AS-DEV-002 và AS-DEV-003 song song (AS-DEV-002 vẫn cần 001).
+- Sau AS-DEV-033, AS-DEV-001 (môi trường) và AS-DEV-034 (thiết kế database) có thể chạy song song. AS-DEV-003 bắt đầu sau 033/034; AS-DEV-002 bắt đầu sau 001/034. Khi các dependency tương ứng hoàn tất, 002 và 003 có thể chạy song song.
 - Khi AS-DEV-002/003 sẵn sàng: 004, 005, 006 và 016 là các nhánh song song; 006 không cần đợi API incident hoàn chỉnh nếu schema persistence đã chốt.
 - Sau context/evidence: phát triển RCA (009) và action catalog (012) song song.
 - UI incident/evidence và patch candidate/sandbox có thể phát triển trên contract đã thống nhất; approval UI đợi gate/API approval.

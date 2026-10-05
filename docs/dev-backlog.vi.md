@@ -16,6 +16,7 @@
 
 | Workstream | Kết quả |
 |---|---|
+| WS0 — Thiết kế hệ thống và dữ liệu | Kiến trúc thành phần/luồng và mô hình dữ liệu được review trước khi code. |
 | WS1 — Nền tảng và hợp đồng | Môi trường chạy lặp lại, mô hình dữ liệu, hợp đồng API giữa Backend và AI Service |
 | WS2 — Incident và evidence | Hồ sơ sự cố, timeline, dữ liệu đa tín hiệu có nguồn gốc và mức độ đầy đủ |
 | WS3 — RCA và remediation | Phân tích có thứ hạng, bằng chứng truy xuất được, đề xuất có giới hạn |
@@ -24,25 +25,41 @@
 | WS6 — Operator UI | Giao diện điều tra, xem bằng chứng, duyệt hành động và review ứng viên bản vá |
 | WS7 — Evaluation | Replay có nhãn, ca kiểm tra an toàn, kịch bản breaking dependency và báo cáo |
 
+## WS0 — Thiết kế hệ thống và dữ liệu
+
+### AS-DEV-033 — Thiết kế kiến trúc hệ thống (**Spike**)
+
+- **Ưu tiên:** P0 · **Owner:** Tech Lead + Backend + AI + Platform · **Phụ thuộc:** Functional Requirements đã baseline
+- **Công việc:** Chốt ranh giới Backend, AI Service, giao diện vận hành, nguồn telemetry/SCM/CI, execution engine và test harness; mô tả data flow, trust boundaries, tác vụ dài, trạng thái/failure paths và cách triển khai. Bám lựa chọn trong Literature Review; ghi riêng những quyết định còn mở.
+- **Nghiệm thu:** Có architecture/component diagram và sequence flows cho RCA, approval/execution, patch/evaluation; ranh giới quyền chứng minh AI không approve/execute production; tích hợp và các điểm fail/retry được mô tả; Tech Lead cùng owner các workstream review; danh sách quyết định chưa có nguồn được chuyển sang PM.
+- **Truy vết:** Literature Review — modular control plane, AI reasoning, human approval, execution boundary, test harness; toàn bộ FR.
+
+### AS-DEV-034 — Thiết kế cơ sở dữ liệu (**Spike**)
+
+- **Ưu tiên:** P0 · **Owner:** Backend/Data · **Phụ thuộc:** AS-DEV-033
+- **Công việc:** Thiết kế ERD/schema PostgreSQL cho incident, deployment/change, evidence references, RCA, remediation/action versions, approvals, execution/audit, patch candidates, CI results và evaluation runs; xác định quan hệ, state transitions, integrity constraints, transaction boundaries, indexes và data lifecycle.
+- **Nghiệm thu:** ERD và data dictionary được Backend review; approval/action/version và audit relationships có thể bảo đảm bằng constraint/transaction; schema hỗ trợ truy xuất evidence và traceability; migration plan có nâng cấp/khôi phục; điểm chưa được Literature Review quy định được ghi thành câu hỏi cho PM.
+- **Truy vết:** Literature Review — PostgreSQL, quan hệ incident/action/approval/version/audit; FR BE-FR-01–40, AI-FR-01–24, EV-FR-01–12.
+
 ## WS1 — Nền tảng và hợp đồng
 
 ### AS-DEV-001 — Dựng môi trường phát triển và kiểm thử lặp lại
 
-- **Ưu tiên:** P0 · **Owner:** DevOps/Backend · **Phụ thuộc:** Không
+- **Ưu tiên:** P0 · **Owner:** DevOps/Backend · **Phụ thuộc:** AS-DEV-033
 - **Công việc:** Tạo cách chạy local cho Backend, AI Service, PostgreSQL và workload thử nghiệm bằng cấu hình có thể lặp lại. Ghi rõ cấu hình ngoài phạm vi tự động hóa.
 - **Nghiệm thu:** Thành viên mới có thể khởi động môi trường theo hướng dẫn; health check của các dịch vụ chạy được; dữ liệu thử nghiệm không trỏ tới production; cấu hình bí mật không được commit.
 - **Truy vết:** Literature Review — Compose cho phát triển, môi trường cô lập; FR BE-FR-26, EV-FR-07.
 
-### AS-DEV-002 — Định nghĩa mô hình dữ liệu và migration ban đầu
+### AS-DEV-002 — Triển khai schema và migration database
 
-- **Ưu tiên:** P0 · **Owner:** Backend · **Phụ thuộc:** AS-DEV-001
-- **Công việc:** Mô hình hóa Incident, service/environment, deployment/change, evidence reference, RCA hypothesis, remediation, approval, action/execution, patch candidate, test result và audit event. Dùng migration có thể nâng cấp/khôi phục.
-- **Nghiệm thu:** Migration tạo được schema mới và nâng cấp từ schema trước; quan hệ incident–action–approval không thể trỏ chéo sai; có constraint/transaction cho các trạng thái an toàn cốt lõi.
+- **Ưu tiên:** P0 · **Owner:** Backend · **Phụ thuộc:** AS-DEV-001, AS-DEV-034
+- **Công việc:** Hiện thực schema PostgreSQL đã được review bằng migration; thêm constraints, indexes và transaction support cho các quan hệ/trạng thái an toàn cốt lõi.
+- **Nghiệm thu:** Migration tạo schema mới, nâng cấp và khôi phục theo kế hoạch; incident–action–approval không thể trỏ chéo sai; integrity rules được kiểm tra trên PostgreSQL thật.
 - **Truy vết:** FR BE-FR-01–07, BE-FR-14–17, BE-FR-21, BE-FR-27, BE-FR-38–40.
 
 ### AS-DEV-003 — Chốt hợp đồng API Backend ↔ AI Service (**Spike**)
 
-- **Ưu tiên:** P0 · **Owner:** Backend + AI · **Phụ thuộc:** AS-DEV-002
+- **Ưu tiên:** P0 · **Owner:** Backend + AI · **Phụ thuộc:** AS-DEV-033, AS-DEV-034
 - **Công việc:** Chốt schema request/response cho gói incident context/evidence, RCA hypotheses, remediation và patch candidate; bao gồm version, trace/correlation ID, validation errors, timeout và idempotency.
 - **Nghiệm thu:** Có schema máy đọc được và ví dụ hợp lệ/không hợp lệ; hai dịch vụ validate cùng bộ ví dụ; response luôn giữ được ID bằng chứng nguồn; không có trường biểu diễn approval hoặc quyền execution trong payload AI.
 - **Truy vết:** FR BE-FR-13–16, AI-FR-01–03, AI-FR-07–10, AI-FR-15, AI-FR-19, AI-FR-23.
@@ -58,14 +75,14 @@
 
 ### AS-DEV-005 — API vòng đời incident và timeline
 
-- **Ưu tiên:** P0 · **Owner:** Backend · **Phụ thuộc:** AS-DEV-002
+- **Ưu tiên:** P0 · **Owner:** Backend · **Phụ thuộc:** AS-DEV-002, AS-DEV-003
 - **Công việc:** Tạo, đọc, cập nhật trạng thái incident; liên kết service/environment, release/deployment/commit và ghi lịch sử chuyển trạng thái.
 - **Nghiệm thu:** Incident có ID ổn định; timeline sắp xếp được theo timestamp/source; phân biệt symptom, fault location, suspected cause và remediation; trạng thái chuyển theo workflow được định nghĩa.
 - **Truy vết:** FR BE-FR-01–07.
 
 ### AS-DEV-006 — Adapter ingest telemetry và deployment events
 
-- **Ưu tiên:** P0 · **Owner:** Backend/Integration · **Phụ thuộc:** AS-DEV-002, AS-DEV-005
+- **Ưu tiên:** P0 · **Owner:** Backend/Integration · **Phụ thuộc:** AS-DEV-002
 - **Công việc:** Tiếp nhận/truy xuất log, metric, trace và deployment/change events từ nguồn observability/SCM/CI được chọn ở refinement.
 - **Nghiệm thu:** Bản ghi giữ source, timestamp, service/environment, release/version và correlation IDs khi có; payload nguồn hoặc đường dẫn tới payload có thể truy xuất lại; lỗi connector được lưu thay vì bỏ qua.
 - **Truy vết:** Literature Review — liên kết source/deployment/telemetry; FR BE-FR-03–05, BE-FR-08–10.
@@ -109,7 +126,7 @@
 
 ### AS-DEV-012 — Xây dựng danh mục remediation và phạm vi action
 
-- **Ưu tiên:** P1 · **Owner:** Backend + AI · **Phụ thuộc:** AS-DEV-003, AS-DEV-011
+- **Ưu tiên:** P1 · **Owner:** Backend + AI · **Phụ thuộc:** AS-DEV-002, AS-DEV-003
 - **Công việc:** Khai báo loại action được đề xuất và giới hạn cho từng action; các action ngoài danh mục được đưa sang người vận hành.
 - **Nghiệm thu:** Mọi action proposal có loại, target, phạm vi, tiền điều kiện, rủi ro và tín hiệu xác nhận; AI không thể nới phạm vi bằng text tự do; không action nào tự tạo authorization.
 - **Truy vết:** FR AI-FR-11–14; BE-FR-20–25.
@@ -262,15 +279,27 @@
 - **Nghiệm thu:** Báo cáo tách replay, action tests, workload experiments và patch benchmark; nêu model/workflow version; không suy rộng kết quả một benchmark thành độ an toàn production; PM có checklist bằng chứng để quyết định release.
 - **Truy vết:** FR EV-FR-01–12; Literature Review — giới hạn phạm vi benchmark và cần đánh giá thực nghiệm.
 
-## Thứ tự triển khai gợi ý
+## Thứ tự bắt buộc và các nhóm song song
 
-1. **Nền tảng an toàn:** AS-DEV-001–004, AS-DEV-014–18 và AS-DEV-029.
-2. **Đường đi RCA:** AS-DEV-005–011, AS-DEV-024–25 và AS-DEV-028.
-3. **Khắc phục có kiểm soát:** AS-DEV-012–13, AS-DEV-026, AS-DEV-031.
-4. **Patch lifecycle:** AS-DEV-019–23, AS-DEV-027 và AS-DEV-030.
-5. **Đánh giá và release decision:** AS-DEV-032.
+### Thứ tự bắt buộc
 
-Các nhóm có thể chạy song song sau khi API/schema chung được thống nhất, nhưng không bật execution ngoài sandbox trước khi approval gate và quyền tối thiểu được nghiệm thu.
+1. **Thiết kế:** AS-DEV-033 kiến trúc hệ thống → AS-DEV-034 database design. Hai đầu ra phải được review trước khi chốt schema/API implementation.
+2. **Nền tảng song song sau thiết kế:** AS-DEV-001 môi trường; AS-DEV-002 schema/migrations sau AS-DEV-001 và AS-DEV-034; AS-DEV-003 API contract sau AS-DEV-033 và AS-DEV-034.
+3. **Nền móng backend song song:** AS-DEV-004 service identity sau 001/003; AS-DEV-005 incident API sau 002/003; AS-DEV-006 telemetry/deployment ingest sau 002; AS-DEV-016 persistent jobs sau 002/003.
+4. **Dữ liệu và RCA:** AS-DEV-007 correlation sau 006 → AS-DEV-008 context package sau 003/007 → AS-DEV-009 RCA. AS-DEV-010 uncertainty handling và AS-DEV-011 persistence/view follow their listed dependencies. AS-DEV-012 action catalog có thể chạy song song với RCA sau 002/003.
+5. **Safety gate trước execution:** AS-DEV-014 approval/action binding sau 002/012 → AS-DEV-015 pre-execution gate → AS-DEV-017 test-environment execution. AS-DEV-013 rollback adapter chỉ sau 012/017. AS-DEV-018 end-to-end audit sau khi incident, context, approval và execution có thể phát sinh event.
+6. **UI và patch workstream có thể chạy song song theo contract:** AS-DEV-024 incident UI sau 005/011; AS-DEV-025 evidence/RCA UI sau 007/011; AS-DEV-026 approval UI sau 014/015/024. Patch: AS-DEV-019 diagnosis sau 003/008 → AS-DEV-020 patch candidate → AS-DEV-021 branch/review → AS-DEV-022 sandbox CI → AS-DEV-023 CI handoff; AS-DEV-027 patch UI sau 021–023.
+7. **Đánh giá:** AS-DEV-028 sau 009; AS-DEV-029 sau 015–018; AS-DEV-030 sau 019–023; AS-DEV-031 sau 013/017. AS-DEV-032 tổng hợp sau 028–031.
+
+### Có thể làm song song
+
+- Sau AS-DEV-033: AS-DEV-001 có thể bắt đầu cùng lúc với AS-DEV-034; sau AS-DEV-034 có thể chạy AS-DEV-002 và AS-DEV-003 song song (AS-DEV-002 vẫn cần 001).
+- Khi AS-DEV-002/003 sẵn sàng: 004, 005, 006 và 016 là các nhánh song song; 006 không cần đợi API incident hoàn chỉnh nếu schema persistence đã chốt.
+- Sau context/evidence: phát triển RCA (009) và action catalog (012) song song.
+- UI incident/evidence và patch candidate/sandbox có thể phát triển trên contract đã thống nhất; approval UI đợi gate/API approval.
+- Evaluation harness có thể xây theo từng năng lực, nhưng chỉ nghiệm thu kết quả khi hệ thống tương ứng chạy được.
+
+**Rào chắn:** Mọi execution chỉ ở sandbox cho tới khi approval gate, quyền tối thiểu, audit và negative tests được nghiệm thu. Không task nào tự cấp quyền cho AI merge hoặc thay đổi production.
 
 ## Quyết định PM cần chốt khi refinement
 
